@@ -1,0 +1,17 @@
+origin: |-
+  select 'hello \\world' as col1 from dual;
+  insert into table_1 values ('sadasd');
+  insert into table_2 values ('asdasd\\');
+  insert into asdas values('asdasd\\');
+
+expected:
+  - |-
+    select 'hello \\world' as col1 from dual;
+  - |-
+    insert into table_1 values ('sadasd');
+  - |-
+    insert into table_2 values ('asdasd\\');
+  - |-
+    insert into asdas values('asdasd\\');
+
+expected_end_delimiter: ;
