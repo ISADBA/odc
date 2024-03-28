@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import com.oceanbase.odc.core.session.ConnectionSession;
@@ -36,6 +37,7 @@ import com.oceanbase.odc.service.connection.model.ConnectionConfig;
 import com.oceanbase.odc.service.connection.table.TableService;
 import com.oceanbase.odc.service.iam.auth.AuthenticationFacade;
 import com.oceanbase.odc.service.permission.database.model.DatabasePermissionType;
+import com.oceanbase.odc.service.permission.table.TablePermissionService;
 import com.oceanbase.odc.service.session.model.SqlAsyncExecuteReq;
 import com.oceanbase.odc.service.session.model.SqlAsyncExecuteResp;
 import com.oceanbase.odc.service.session.model.SqlExecuteResult;
@@ -43,6 +45,7 @@ import com.oceanbase.odc.service.session.model.SqlTuplesWithViolation;
 import com.oceanbase.odc.service.session.model.UnauthorizedResource;
 import com.oceanbase.odc.service.session.util.SchemaExtractor;
 import com.oceanbase.tools.dbbrowser.parser.constant.SqlType;
+import com.oceanbase.tools.sqlparser.statement.common.RelationFactor;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -69,6 +72,9 @@ public class ResourcePermissionInterceptor extends BaseTimeConsumingInterceptor 
     @Autowired
     private TableService tableService;
 
+    @Autowired
+    private TablePermissionService tablePermissionService;
+
 
     @Override
     public int getOrder() {
@@ -83,22 +89,22 @@ public class ResourcePermissionInterceptor extends BaseTimeConsumingInterceptor 
         }
         ConnectionConfig connectionConfig = (ConnectionConfig) ConnectionSessionUtil.getConnectionConfig(session);
         String currentSchema = ConnectionSessionUtil.getCurrentSchema(session);
-        Map<String, Set<SqlType>> schemaName2SqlTypes = SchemaExtractor.listSchemaName2SqlTypes(
+        Map<RelationFactor, Set<SqlType>> relationFactorSetMap = SchemaExtractor.listTableName2SqlTypes(
                 response.getSqls().stream().map(SqlTuplesWithViolation::getSqlTuple).collect(Collectors.toList()),
                 currentSchema, session.getDialectType());
-        Map<String, Set<DatabasePermissionType>> schemaName2PermissionTypes = new HashMap<>();
-        for (Entry<String, Set<SqlType>> entry : schemaName2SqlTypes.entrySet()) {
+        Map<RelationFactor, Set<DatabasePermissionType>> tableName2PermissionTypes = new HashMap<>();
+        for (Entry<RelationFactor, Set<SqlType>> entry : relationFactorSetMap.entrySet()) {
             Set<SqlType> sqlTypes = entry.getValue();
             if (CollectionUtils.isNotEmpty(sqlTypes)) {
                 Set<DatabasePermissionType> permissionTypes = sqlTypes.stream().map(DatabasePermissionType::from)
                         .filter(Objects::nonNull).collect(Collectors.toSet());
                 if (CollectionUtils.isNotEmpty(permissionTypes)) {
-                    schemaName2PermissionTypes.put(entry.getKey(), permissionTypes);
+                    tableName2PermissionTypes.put(entry.getKey(), permissionTypes);
                 }
             }
         }
         List<UnauthorizedResource> unauthorizedResource =
-                databaseService.filterUnauthorizedDatabases(schemaName2PermissionTypes, connectionConfig.getId());
+                tablePermissionService.filterUnauthorizedTables(tableName2PermissionTypes, connectionConfig.getId());
         if (CollectionUtils.isNotEmpty(unauthorizedResource)) {
             response.setUnauthorizedResource(unauthorizedResource);
             return false;

@@ -16,7 +16,6 @@
 package com.oceanbase.odc.server.web.controller.v2;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -56,8 +55,8 @@ public class TableController {
         // sid:1-1:d:database
         ResourceIdentifier i = ResourceIDParser.parse(sid);
         List<Table> tables =
-            tableService.listTablesWithoutPage(sessionService.nullSafeGet(i.getSid(), true), i.getDatabaseId());
-        //return OdcResult.ok(tables.stream().map(OdcDBTable::new).collect(Collectors.toList()));
+                tableService.listTablesWithoutPage(sessionService.nullSafeGet(i.getSid(), true), i.getDatabaseId());
+        // return OdcResult.ok(tables.stream().map(OdcDBTable::new).collect(Collectors.toList()));
         return OdcResult.ok(tables);
     }
 }
